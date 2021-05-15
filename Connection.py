@@ -21,6 +21,7 @@ class Connection:
                 #self.Create_Table_trip_members(cur)
                 self.Create_Table_trip_location(cur)
 
+
                 #self.get_Field(cur, query.TOUR_PEOPLE_REGISTER)
                 #self.get_Field(cur, query.TRIP_DETAIL)
                 #self.get_Field(cur, query.PLACE_DETAIL)
