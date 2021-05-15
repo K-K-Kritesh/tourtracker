@@ -25,7 +25,7 @@ class Connection:
                 #self.get_Field(cur, query.TRIP_DETAIL)
                 #self.get_Field(cur, query.PLACE_DETAIL)
                 #self.get_Field(cur, query.TRIP_CODE)
-                self.get_Field(cur, query.TRIP_MEMBERS)
+                #Sself.get_Field(cur, query.TRIP_MEMBERS)
                 self.get_Field(cur, query.TRIP_LOCATION)
         except Error as e:
             print("Error while coonecting error",e)
