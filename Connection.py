@@ -3,6 +3,7 @@ import mysql.connector as mysql
 from mysql.connector import Error
 from mysql.connector import connection
 import SqlQuery as query
+from passlib.hash import pbkdf2_sha256 as sha256
 
 class Connection():
     def __init__(self):
@@ -15,6 +16,7 @@ class Connection():
             )
             if self.connection.is_connected():
                 cur = self.connection.cursor()
+                #self.delete_User(cur)
                 #self.createDataBase(cur)
                 #self.Create_Table_tour_people_register(cur)
                 #self.Create_Table_trip_detail(cur)
@@ -90,7 +92,53 @@ class Connection():
             else:
                 return []
         except Exception as e:
+            return []
+
+
+    def Update_User_Data(self, cur, *param):
+        try:
+            cur.execute(f"SELECT * from {query.TOUR_PEOPLE_REGISTER} WHERE email_id like '{param[0]}'")
+            data = cur.fetchall()
+            if len(data) == 0:
+                return "NOT_FOUND"
+            else:
+                cur.execute(f"UPDATE {query.TOUR_PEOPLE_REGISTER} SET first_name = '{param[1]}', last_name = '{param[2]}', mobile_no = '{param[3]}', gender = '{param[4]}', address= '{param[5]}', birth_date='{param[6]}', blood_group='{param[7]}', health_problems='{param[8]}' WHERE email_id like '{param[0]}'")
+                row_id = cur.lastrowid
+                print(row_id)
+                self.connection.commit()
+                cur.execute(f"SELECT * from {query.TOUR_PEOPLE_REGISTER} WHERE email_id like '{param[0]}'")
+                row_header = [x[0] for x in cur.description]
+                rv = cur.fetchall()
+                for result in rv:
+                    json_data = dict(zip(row_header, result))
+                return json_data
+        except Exception as e:
+            return []
+
+    def login(self, cur, *param):
+        try:
+            cur.execute(f"SELECT * from {query.TOUR_PEOPLE_REGISTER} WHERE email_id like '{param[0]}'")
+            row_header = [x[0] for x in cur.description]
+            rv = cur.fetchall()
+            if len(rv) == 0:
+                return "NOT_FOUND"
+            else:
+                if sha256.using(salt_size=16, rounds=200).verify(f"{param[1]}", rv[0][7]):
+                    for result in rv:
+                        json_data = dict(zip(row_header, result))
+                    return json_data
+                else:
+                    return "WRONG_PASSWORD"
+        except Exception as e:
             return e
+
+    def delete_User(self, cur):
+        try:
+            cur.execute(f"DELETE FROM {query.TOUR_PEOPLE_REGISTER} WHERE id like 24 ")
+            self.connection.commit()
+            print("delete record")
+        except Exception as e:
+            print(str(e))
 
     def get_Data(self, cur, tableName):
         cur.execute(f"select * from {tableName}")
