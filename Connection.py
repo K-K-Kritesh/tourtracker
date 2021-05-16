@@ -13,12 +13,12 @@ class Connection:
             )
             if connection.is_connected():
                 cur = connection.cursor()
-                #self.createDataBase(cur)
-                #self.Create_Table_tour_people_register(cur)
-                #self.Create_Table_trip_detail(cur)
-                #self.Create_Table_place_detail(cur)
-                #self.Create_Table_trip_codes(cur)
-                #self.Create_Table_trip_members(cur)
+                self.createDataBase(cur)
+                self.Create_Table_tour_people_register(cur)
+                self.Create_Table_trip_detail(cur)
+                self.Create_Table_place_detail(cur)
+                self.Create_Table_trip_codes(cur)
+                self.Create_Table_trip_members(cur)
                 self.Create_Table_trip_location(cur)
 
 
@@ -27,7 +27,8 @@ class Connection:
                 #self.get_Field(cur, query.PLACE_DETAIL)
                 #self.get_Field(cur, query.TRIP_CODE)
                 #self.get_Field(cur, query.TRIP_MEMBERS)
-                self.get_Field(cur, query.TRIP_LOCATION)
+                #self.get_Field(cur, query.TRIP_LOCATION)
+                print("Database Initialize Successfully")
         except Error as e:
             print("Error while coonecting error",e)
 
@@ -55,5 +56,3 @@ class Connection:
     def get_Field(self, cur, tablename):
         cur.execute(f"select * from {tablename}")
         print([x[0] for x in cur.description])
-
-Connection()
