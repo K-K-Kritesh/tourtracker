@@ -1,9 +1,11 @@
+from datetime import datetime
+import re
 from flask import json
 import mysql.connector as mysql
 from mysql.connector import Error
-from mysql.connector import connection
 import SqlQuery as query
 from passlib.hash import pbkdf2_sha256 as sha256
+
 
 class Connection():
     def __init__(self):
@@ -26,6 +28,11 @@ class Connection():
                 #self.Create_Table_trip_location(cur)
                 #self.Alter_Table_tour_people_register(cur)
                 #self.get_column_name(cur, self.connection)
+                #self.Create_Table_trusted_request(cur)
+                #self.Create_Table_trusted_person(cur)
+                #self.Create_Table_Reset_Password(cur)
+                #self.Alter_Table_add_column_trip_detail(cur)
+                #self.Alter_Table_add_forgin_key_trip_detail(cur)
 
                 #self.get_Field(cur, query.TOUR_PEOPLE_REGISTER)
                 #self.get_Field(cur, query.TRIP_DETAIL)
@@ -33,11 +40,13 @@ class Connection():
                 #self.get_Field(cur, query.TRIP_CODE)
                 #self.get_Field(cur, query.TRIP_MEMBERS)
                 #self.get_Field(cur, query.TRIP_LOCATION)
-                print("Database Initialize Successfully")
-
-                
+                #self.get_Field(cur, query.TRUSTED_REQUEST)
+                #self.get_Field(cur, query.TRUSTED_PERSON)
+                print("Database Initialize Successfully") 
         except Error as e:
             print("Error while coonecting error",e)
+
+    # ==== Create Table and change table field get column of table defination start
 
     def get_Cursor(self):
         return self.connection.cursor()
@@ -63,9 +72,35 @@ class Connection():
     def Create_Table_trip_location(self, cur):
         cur.execute(query.CREATE_TABLE_TRIP_LOCATION)
 
+    def Create_Table_trusted_request(self, cur):
+        cur.execute(query.CREATE_TABLE_TRUSTED_REQUEST)
+        print("Table created")
+
+    def Create_Table_trusted_person(self, cur):
+        cur.execute(query.CREATE_TABLE_TRUSTED_PERSON)    
+        print("Table created")
+
+    def Create_Table_Reset_Password(self, cur):
+        cur.execute(query.CREATE_TABLE_RESET_PASSWORD_LINK)
+        print('reset password created')
+
     def Alter_Table_tour_people_register(self, cur):
         cur.execute(query.ALTER_TOUR_PEOPLE_REGISTER)
         print("done")
+
+    def Alter_Table_add_column_trip_detail(self, cur):
+        cur.execute(query.ALTER_TRIP_DETAIL_ADD_COLUMN)
+        print("Trip detail add new column")
+
+    def Alter_Table_add_forgin_key_trip_detail(self, cur):
+        #cur.execute(query.DROP_FORGIN_KEY)
+        cur.execute(query.ALTER_TRIP_DETAIL_ADD_FORGIN_KEYY)
+        #cur.execute(query.CHECK_FK)
+        #print(cur.fetchall())
+        #cur.execute(query.COLUMN_NAME)
+        #print(cur.fetchall())
+        #cur.execute(query.truncate)
+        print("add forgin key")
 
     def get_column_name(self, cur, conn):
         cur.execute(query.COLUMN_NAME)
@@ -73,8 +108,12 @@ class Connection():
 
     def get_Field(self, cur, tablename):
         cur.execute(f"select * from {tablename}")
-        print([type(x[0]) for x in cur.description])
+        print([x[0] for x in cur.description])
 
+    # Create Table and change table field get column of table defination over===
+
+    # === Table Insert, Update, Delete query start
+    
     def Insert_tour_people_register(self, cur, *param):
         try:
             cur.execute(f"select * from {query.TOUR_PEOPLE_REGISTER} WHERE email_id like '{param[2]}'")
@@ -93,7 +132,27 @@ class Connection():
                 return []
         except Exception as e:
             return []
+        finally:
+            cur.close()
 
+    def Insert_reset_password_link_key(self, cur, *param):
+        try:
+            cur.execute(f"select * from {query.RESET_PASSWORD} WHERE email_id like '{param[0]}'")
+            data = cur.fetchall()
+            if len(data) == 0:
+                cur.execute(f"INSERT INTO {query.RESET_PASSWORD} (email_id, reset_link_key, date) VALUES('{param[0]}','{param[1]}','{param[2]}')")
+                row_id = cur.lastrowid
+                self.connection.commit()
+                return "INSERT"
+            else:
+                cur.execute(f"UPDATE {query.RESET_PASSWORD} SET reset_link_key = '{param[1]}', date = '{param[2]}' WHERE email_id like '{param[0]}'")
+                row_id = cur.lastrowid
+                self.connection.commit()
+                return "UPDATE"
+        except Exception as e:
+            return []
+        finally:
+            cur.close()
 
     def Update_User_Data(self, cur, *param):
         try:
@@ -104,7 +163,6 @@ class Connection():
             else:
                 cur.execute(f"UPDATE {query.TOUR_PEOPLE_REGISTER} SET first_name = '{param[1]}', last_name = '{param[2]}', mobile_no = '{param[3]}', gender = '{param[4]}', address= '{param[5]}', birth_date='{param[6]}', blood_group='{param[7]}', health_problems='{param[8]}' WHERE email_id like '{param[0]}'")
                 row_id = cur.lastrowid
-                print(row_id)
                 self.connection.commit()
                 cur.execute(f"SELECT * from {query.TOUR_PEOPLE_REGISTER} WHERE email_id like '{param[0]}'")
                 row_header = [x[0] for x in cur.description]
@@ -114,6 +172,17 @@ class Connection():
                 return json_data
         except Exception as e:
             return []
+        finally:
+            cur.close()
+
+    def Update_password(self, cur, *param):
+        try:
+            enctypted_password = str(sha256.using(salt_size = 16, rounds =200).hash(param[1]))
+            cur.execute(f"UPDATE {query.TOUR_PEOPLE_REGISTER} SET password = '{enctypted_password}' WHERE email_id like '{param[0]}'")
+            self.connection.commit()
+            return "Password Reset Successfully"
+        except Exception as e:
+            return str(e)
 
     def login(self, cur, *param):
         try:
@@ -131,6 +200,8 @@ class Connection():
                     return "WRONG_PASSWORD"
         except Exception as e:
             return e
+        finally:
+            cur.close()
 
     def delete_User(self, cur):
         try:
@@ -139,6 +210,8 @@ class Connection():
             print("delete record")
         except Exception as e:
             print(str(e))
+        finally:
+            cur.close()
 
     def get_Data(self, cur, tableName):
         cur.execute(f"select * from {tableName}")
@@ -147,4 +220,247 @@ class Connection():
         json_data = []
         for result in rv:
             json_data.append(dict(zip(row_header, result)))
+        cur.close()
         return json_data
+
+    def get_reset_password_emailid(self, cur, key):
+        cur.execute(f"select * from {query.RESET_PASSWORD} WHERE reset_link_key like '{key}'")
+        row_header = [x[0] for x in cur.description]
+        rv = cur.fetchall()
+        if len(rv) == 0 :
+            return "URL_NOT_FOUND"
+        else:
+            json_data = []
+            for result in rv:
+                json_data.append(dict(zip(row_header, result)))
+            email_id = json_data[0]['email_id']
+            cur.execute(f"SELECT * from {query.TOUR_PEOPLE_REGISTER} WHERE email_id like '{email_id}'")
+            data = cur.fetchall()
+            if len(data) == 0:
+                cur.close()
+                return "NOT_FOUND"
+            else:
+                cur.close()
+                return json_data
+
+    def Code_Is_Exists(self, cur, code, tquery):
+        try:
+            cur.execute(tquery + f"'{code}'")
+            if len(cur.fetchall()) == 0:
+                return False
+            else:
+                return True
+        except Exception as e:
+            cur.close()
+            return e
+        finally:
+            cur.close()
+
+    def Change_Password(self, cur, *param):
+        try:
+            cur.execute(query.Select_Data.format(param[0]))
+            result = cur.fetchone()
+            if sha256.using(salt_size=16, rounds=200).verify(f"{param[2]}", result[0]):
+                cur.execute(query.Change_Password.format(param[1], param[0]))
+                self.connection.commit()
+                cur.close()
+                return 'Password change Sucessfully'
+            else:
+                cur.close()
+                return 'Old Password is not match'
+        except Exception as e:
+            cur.close()
+            return e
+        finally:
+            cur.close()
+
+    def Insert_Create_Trip_Detail(self, cur, *param):
+        cur.execute(f"INSERT INTO {query.TRIP_DETAIL} (trip_title, sorce_location, destination_location, start_time_date, end_time_date, no_of_place_visit, id) VALUES('{param[0]}','{param[1]}','{param[2]}','{param[3]}','{param[4]}',{param[5]},{param[6]})")
+        row_id = cur.lastrowid
+        self.connection.commit()
+        cur.execute(f"SELECT * from {query.TRIP_DETAIL} WHERE trip_id = {row_id}")
+        row_header = [x[0] for x in cur.description]
+        rv = cur.fetchall()
+        json_data = []
+        for result in rv:
+            json_data = dict(zip(row_header, result))
+        cur.close()
+        return json_data
+
+    def Insert_Create_Place_Detail(self, cur, *param):
+        cur.execute(f"INSERT INTO {query.PLACE_DETAIL} (place_name, address1, address2, trip_id) VALUES('{param[0]}','{param[1]}','{param[2]}',{param[3]})")
+        row_id = cur.lastrowid
+        self.connection.commit()
+        cur.execute(f"SELECT * from {query.PLACE_DETAIL} WHERE place_id = {row_id}")
+        row_header = [x[0] for x in cur.description]
+        rv = cur.fetchall()
+        json_data = []
+        for result in rv:
+            json_data = dict(zip(row_header, result))
+        cur.close()
+        return json_data
+
+    def Update_Place_Detail(self, cur, *param):
+        cur.execute(f"SELECT * FROM {query.PLACE_DETAIL} WHERE place_id = {param[0]}")
+        if len(cur.fetchall()) != 0:
+            cur.execute(f"UPDATE {query.PLACE_DETAIL} set place_name = '{param[1]}', address1 = '{param[2]}', address2 = '{param[3]}' WHERE place_id = {param[0]}")
+            self.connection.commit()
+            return "UPDATE"
+        else:
+            return "NOT_FOUND"
+
+    def Delete_Place_Detail(self, cur, place_id):
+        cur.execute(f"SELECT * FROM {query.PLACE_DETAIL} WHERE place_id = {place_id}")
+        if len(cur.fetchall()) != 0:
+            cur.execute(f"DELETE {query.PLACE_DETAIL} WHERE place_id = {place_id}")
+            self.connection.commit()
+            return "DELETE"
+        else:
+            return "NOT_FOUND"
+
+    def Insert_Create_T_Code(self, cur, *param):
+
+        cur.execute(f"SELECT * from {query.TRIP_CODE} WHERE trip_id = {param[1]}")
+        if len(cur.fetchall()) == 0:
+            cur.execute(f"INSERT INTO {query.TRIP_CODE} (trip_code, trip_id) VALUES('{param[0]}',{param[1]})")
+            row_id = cur.lastrowid
+            self.connection.commit()
+            cur.execute(f"SELECT * from {query.TRIP_CODE} WHERE trip_code_id = {row_id}")
+            row_header = [x[0] for x in cur.description]
+            rv = cur.fetchall()
+            json_data = []
+            for result in rv:
+                json_data = dict(zip(row_header, result))
+            cur.close()
+            return json_data
+        else:
+            return "ALREADY"
+        
+    def Insert_Create_Add_Trip_Members(self, cur, *param):
+
+        cur.execute(f"SELECT * from {query.TRIP_MEMBERS} WHERE trip_id = {param[0]} and id = {param[1]}")
+        if len(cur.fetchall()) == 0:
+            cur.execute(f"SELECT trip_code_id from {query.TRIP_CODE} WHERE trip_code like '{param[2]}'")
+            trip_code_id = cur.fetchone()
+            if trip_code_id != None:
+                cur.execute(f"INSERT INTO {query.TRIP_MEMBERS} (trip_id, id, trip_code_id) VALUES({param[0]} ,{param[1]}, {trip_code_id[0]})")
+                row_id = cur.lastrowid
+                self.connection.commit()
+                cur.execute(f"SELECT * from {query.TRIP_MEMBERS} WHERE trip_code_id = {row_id}")
+                row_header = [x[0] for x in cur.description]
+                rv = cur.fetchall()
+                json_data = []
+                for result in rv:
+                    json_data = dict(zip(row_header, result))
+                cur.close()
+                return json_data
+            else:
+                return "CODE_NOT_FOUND"
+        else:
+            return "ALREADY"
+            
+
+    def Insert_Create_Add_Trip_Location(self, cur, *param):
+
+        cur.execute(f"SELECT * from {query.TRIP_LOCATION} WHERE trip_id = {param[3]}")
+        if len(cur.fetchall()) == 0:
+            cur.execute(f"INSERT INTO {query.TRIP_LOCATION} (source_location, destination_location, s_d_key, trip_id) VALUES('{param[0]}','{param[1]}','{param[2]}',{param[3]})")
+            row_id = cur.lastrowid
+            self.connection.commit()
+            cur.execute(f"SELECT * from {query.TRIP_LOCATION} WHERE trip_location_id = {row_id}")
+            row_header = [x[0] for x in cur.description]
+            rv = cur.fetchall()
+            json_data = []
+            for result in rv:
+                json_data = dict(zip(row_header, result))
+            cur.close()
+            return json_data
+        else:
+            return "ALREADY"
+        
+    def Insert_Add_Trusted_Person(self, cur, *param):
+
+        cur.execute(f"SELECT id from {query.TOUR_PEOPLE_REGISTER} WHERE trusted_person_t_code like '{param[0]}'")
+        trusted_person_id = cur.fetchone()
+        if trusted_person_id != None:
+            cur.execute(f"SELECT * from {query.TRUSTED_PERSON} WHERE id = {param[1]}")    
+            if len(cur.fetchall()) == 0:
+                cur.execute(f"INSERT INTO {query.TRUSTED_PERSON} (trusted_code, id) VALUES('{param[0]}',{param[1]})")
+                cur.execute(f"UPDATE {query.TOUR_PEOPLE_REGISTER} set trusted_person = '{trusted_person_id[0]}' WHERE id = {param[1]}")
+                row_id = cur.lastrowid
+                self.connection.commit()
+                cur.execute(f"SELECT * from {query.TRUSTED_PERSON} WHERE trusted_person_id = {row_id}")
+                row_header = [x[0] for x in cur.description]
+                rv = cur.fetchall()
+                json_data = []
+                for result in rv:
+                    json_data = dict(zip(row_header, result))
+                cur.close()
+                return json_data
+            else:
+                return "ALREADY"
+        else:
+            return "USER_NOT_FOUND"
+
+    def update_Add_Trusted_Person(self, cur, *param):
+        cur.execute(f"SELECT * FROM {query.TRUSTED_PERSON} WHERE id = {param[1]}")
+        if len(cur.fetchall()) != 0:
+            cur.execute(f"UPDATE {query.TRUSTED_PERSON} SET trusted_code = '{param[0]}' WHERE id = {param[1]}")
+            self.connection.commit()
+            return 'UPDATE'
+        else:
+            return "NOT_FOUND"    
+        
+        
+    def get_My_Trusted_Person(self, cur, userid):
+        cur.execute(f"SELECT trusted_code from {query.TRUSTED_PERSON} WHERE id = {userid}")
+        trusted_code = cur.fetchone()[0]
+        if trusted_code != None:
+            cur.execute(f"SELECT * from {query.TOUR_PEOPLE_REGISTER} WHERE trusted_person_t_code like '{trusted_code}'")
+            people_data = cur.fetchone()
+            row_header = [x[0] for x in cur.description]
+            people_json = dict(zip(row_header, people_data))
+            return people_json
+        else:
+            return "NOT_FOUND"
+
+    def delete_Trip(self, cur, trip_id):
+        cur.execute(f"SELECT * FROM {query.TRIP_DETAIL} WHERE trip_id like {trip_id}")
+        if len(cur.fetchall()) == 0:
+            return "NOT_FOUND"
+        else:
+            cur.execute(f"DELETE FROM {query.TRIP_DETAIL} WHERE trip_id like {trip_id}")
+            self.connection.commit()
+            return "DELETE"
+            
+    def get_All_Trip(self, cur):
+        now_date = datetime.now()
+        current_date = datetime(now_date.year, now_date.month, now_date.day).strftime('%d-%m-%Y') 
+        cur.execute(f"SELECT * FROM {query.TRIP_DETAIL}")
+        allTrip = cur.fetchall()
+        start_date = datetime.strptime(allTrip[0][4],'%d-%m-%Y')
+        start_date = datetime(start_date.year, start_date.month, start_date.day).strftime('%d-%m-%Y') 
+        end_date = datetime.strptime(allTrip[0][5],'%d-%m-%Y')
+        end_date = datetime(end_date.year, end_date.month, end_date.day).strftime('%d-%m-%Y') 
+
+        first_date = datetime.strptime(start_date,'%d-%m-%Y')
+        second_date = datetime.strptime(current_date,'%d-%m-%Y')
+        thired_date = datetime.strptime(end_date,'%d-%m-%Y')
+        return str(first_date < second_date < thired_date)
+
+    def get_Trip_Detail(self, cur):
+        cur.execute(f"SELECT * FROM {query.TRIP_DETAIL}")
+        print(cur.fetchall())
+        cur.execute(f"SELECT * FROM {query.PLACE_DETAIL}")
+        print(cur.fetchall())
+        cur.execute(f"SELECT * FROM {query.TRIP_CODE}")
+        print(cur.fetchall())
+        cur.execute(f"SELECT * FROM {query.TRIP_LOCATION}")
+        print(cur.fetchall())
+        cur.execute(f"SELECT * FROM {query.TRIP_MEMBERS}")
+        print(cur.fetchall())
+        cur.execute(f"SELECT * FROM {query.TRUSTED_PERSON}")
+        print(cur.fetchall())
+    
+
+    #Table Insert, Update, Delete query start ===
