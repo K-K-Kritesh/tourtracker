@@ -1,4 +1,4 @@
-from flask import Flask as flask, jsonify, request as req, redirect, url_for
+from flask import Flask as flask, jsonify, request as req
 import Connection as con
 import Route as route
 from passlib.hash import pbkdf2_sha256 as sha256
@@ -10,11 +10,9 @@ import urllib.request as urlopen
 import os, time
 from datetime import datetime
 
-
 conn = None;
 
-
-app = flask(__name__)
+app = flask(__name__)    
 
 # API Defination
 
@@ -355,18 +353,25 @@ def delete_Trip():
     trip_id = req.form.get('trip_id')
     if check_Validation(trip_id):
         return invalid_Data()
-    conn.get_Trip_Detail(conn.get_Cursor())
-    """deletetrip = conn.delete_Trip(conn.get_Cursor(), trip_id)
+    #conn.get_Trip_Detail(conn.get_Cursor())
+    deletetrip = conn.delete_Trip(conn.get_Cursor(), trip_id)
     return jsonify({
         'message':deletetrip
-    })"""
-    return "done"
+    })
     
     
-@app.route(route.alltrip, methods=['GET'])
+@app.route(route.alltrip, methods=['POST'])
 def All_Trip():
     conn = con.Connection()
-    return conn.get_All_Trip(conn.get_Cursor())
+    id = req.form.get('userId')
+    completed_json, current_json, upcoming_json = conn.get_All_Trip(conn.get_Cursor(), id)
+    return jsonify({
+        'upcoming': upcoming_json,
+        'current': current_json,
+        'completed': [] if completed_json == "NO_DATA" else completed_json,
+        'status': 'failer' if completed_json == "NO_DATA" else 'success',
+        'message': 'Data Not Found' if completed_json == "NO_DATA" else 'Trip Data'
+    })
         
 # General defination
 
@@ -388,7 +393,7 @@ def check_Code_Exists(conn, code, tquery):
 def invalid_Data():
     return jsonify({'data':[],'status': 'failer','message': 'Invalid Data'})
 
-if __name__ == '__main__':
-    app.run(debug=True)
 
+if __name__ == '__main__':
+        app.run(debug=True)
 #host='192.168.43.4', port=5000,

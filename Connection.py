@@ -1,6 +1,5 @@
 from datetime import datetime
-import re
-from flask import json
+from flask import jsonify
 import mysql.connector as mysql
 from mysql.connector import Error
 import SqlQuery as query
@@ -433,20 +432,59 @@ class Connection():
             self.connection.commit()
             return "DELETE"
             
-    def get_All_Trip(self, cur):
+    def get_All_Trip(self, cur, id):
+        ids = self.getalltripdata(cur, id)
         now_date = datetime.now()
         current_date = datetime(now_date.year, now_date.month, now_date.day).strftime('%d-%m-%Y') 
-        cur.execute(f"SELECT * FROM {query.TRIP_DETAIL}")
-        allTrip = cur.fetchall()
-        start_date = datetime.strptime(allTrip[0][4],'%d-%m-%Y')
-        start_date = datetime(start_date.year, start_date.month, start_date.day).strftime('%d-%m-%Y') 
-        end_date = datetime.strptime(allTrip[0][5],'%d-%m-%Y')
-        end_date = datetime(end_date.year, end_date.month, end_date.day).strftime('%d-%m-%Y') 
-
-        first_date = datetime.strptime(start_date,'%d-%m-%Y')
         second_date = datetime.strptime(current_date,'%d-%m-%Y')
-        thired_date = datetime.strptime(end_date,'%d-%m-%Y')
-        return str(first_date < second_date < thired_date)
+        cur.execute(f"SELECT t.*, c.trip_code FROM {query.TRIP_DETAIL} t, {query.TRIP_CODE} c WHERE t.trip_id IN {ids} and t.trip_id = c.trip_id")
+        allTrip = cur.fetchall()
+        if len(allTrip) != 0:
+            row_header = [x[0] for x in cur.description]
+            completed_json = []
+            upcoming_json = []
+            current_json = []
+            print(type(completed_json))
+            for result in allTrip:
+                first_date, thired_date = self.get_StartDate_EndDate(result[4], result[5])
+                placedetaildata = self.get_Place_Detail(cur, result[0])
+                membersdata = self.get_Members_Detail(cur, result[0])
+                if first_date < second_date > thired_date:
+                    completed_json.append(dict(zip(row_header, result), placedetail=placedetaildata, members=membersdata))
+                elif first_date == second_date == thired_date:
+                    current_json.append(dict(zip(row_header, result), placedetail=placedetaildata, members=membersdata))
+                else:
+                    upcoming_json.append(dict(zip(row_header, result), placedetail=placedetaildata, members=membersdata))
+
+            return (completed_json, current_json, upcoming_json)
+        else:
+            return ("NO_DATA", [],[])
+
+        
+    def get_Place_Detail(self, cur, id):
+        cur.execute(f"SELECT * FROM {query.PLACE_DETAIL} WHERE trip_id = {id}")
+        placedata = cur.fetchall()
+        if len(placedata) != 0:
+            row_header = [x[0] for x in cur.description]
+            place_json = []
+            for result in placedata:
+                place_json.append(dict(zip(row_header, result)))
+            return place_json
+        else:
+            return []
+
+    def get_Members_Detail(self, cur, id):
+        cur.execute(f"SELECT p.first_name, p.last_name, p.id, p.mobile_no,m.trip_id, m.id FROM {query.TRIP_MEMBERS} m, {query.TOUR_PEOPLE_REGISTER} p WHERE m.id = p.id and m.trip_id = {id}")
+        placedata = cur.fetchall()
+        if len(placedata) != 0:
+            row_header = [x[0] for x in cur.description]
+            place_json = []
+            for result in placedata:
+                place_json.append(dict(zip(row_header, result)))
+            return place_json
+        else:
+            return []
+
 
     def get_Trip_Detail(self, cur):
         cur.execute(f"SELECT * FROM {query.TRIP_DETAIL}")
@@ -461,6 +499,36 @@ class Connection():
         print(cur.fetchall())
         cur.execute(f"SELECT * FROM {query.TRUSTED_PERSON}")
         print(cur.fetchall())
+        cur.execute(f"SELECT * FROM {query.TRUSTED_REQUEST}")
+        print(cur.fetchall())
     
 
     #Table Insert, Update, Delete query start ===
+
+
+    def get_StartDate_EndDate(self, s_date, e_date):
+        start_date = datetime.strptime(s_date,'%d-%m-%Y')
+        start_date = datetime(start_date.year, start_date.month, start_date.day).strftime('%d-%m-%Y') 
+        end_date = datetime.strptime(e_date,'%d-%m-%Y')
+        end_date = datetime(end_date.year, end_date.month, end_date.day).strftime('%d-%m-%Y') 
+        first_date = datetime.strptime(start_date,'%d-%m-%Y')
+        thired_date = datetime.strptime(end_date,'%d-%m-%Y')
+        return (first_date, thired_date)
+
+
+    def getalltripdata(self, cur, myid):
+        datajson = list()
+        cur.execute(f"select {query.TRIP_CODE}.trip_id from {query.TRIP_MEMBERS} as member INNER JOIN {query.TRIP_CODE} ON member.trip_code_id = {query.TRIP_CODE}.trip_code_id where member.id = {myid}")
+        tripids = cur.fetchall()
+        for id in tripids:
+            datajson.append(id[0])
+        cur.execute(f"SELECT * FROM {query.TRIP_DETAIL} WHERE id = {myid}")
+        tripidss = cur.fetchall()
+        for id in tripidss:
+            if id[0] not in datajson:
+                datajson.append(id[0])
+        return tuple(datajson)
+    
+        
+
+
